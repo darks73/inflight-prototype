@@ -5,3 +5,4 @@ dist/
 build/
 .next/
 reference-docs/
+*:Zone.Identifier
