@@ -1,9 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import YouTube from 'react-youtube'
 
 export default function Home() {
-  const [isOn, setIsOn] = useState(true)
+  const [isOn, setIsOn] = useState(false) // Start with monitor off
+  const [showLogo, setShowLogo] = useState(false)
+  const [showVideo, setShowVideo] = useState(false)
+  const [videoFadeIn, setVideoFadeIn] = useState(false)
+  const [videoReady, setVideoReady] = useState(false)
+  const [videoError, setVideoError] = useState(false)
   const [screenDimensions, setScreenDimensions] = useState({ width: 0, height: 0, x: 0, y: 0 })
 
   useEffect(() => {
@@ -93,8 +99,63 @@ export default function Home() {
       )
       
       if (distance <= powerButtonArea.radius) {
-        setIsOn(!isOn)
+        if (!isOn) {
+          // Turning on - show logo first, then video after delay
+          setIsOn(true)
+          setShowLogo(true)
+          setShowVideo(false)
+          setVideoFadeIn(false)
+          setVideoReady(false)
+          setVideoError(false)
+          
+          // After 3 seconds, hide logo and show video with fade-in
+          setTimeout(() => {
+            setShowLogo(false)
+            setShowVideo(true)
+          }, 3000)
+        } else {
+          // Turning off - hide everything
+          setIsOn(false)
+          setShowLogo(false)
+          setShowVideo(false)
+          setVideoFadeIn(false)
+          setVideoReady(false)
+          setVideoError(false)
+        }
       }
+    }
+  }
+
+  // YouTube player event handlers
+  const onYouTubePlayerReady = () => {
+    setVideoReady(true)
+    setVideoError(false)
+    
+    // Start fade-in when video is ready
+    setTimeout(() => {
+      setVideoFadeIn(true)
+    }, 200)
+  }
+
+  const onYouTubePlayerError = () => {
+    setVideoError(true)
+    setVideoReady(false)
+    // Try to fade in anyway after a delay
+    setTimeout(() => {
+      setVideoFadeIn(true)
+    }, 1000)
+  }
+
+  // Simple YouTube player options
+  const youtubeOptions = {
+    width: '100%',
+    height: '100%',
+    playerVars: {
+      autoplay: 1,
+      controls: 1,
+      modestbranding: 1,
+      rel: 0,
+      showinfo: 0
     }
   }
 
@@ -133,8 +194,8 @@ export default function Home() {
           />
         )}
         
-        {/* Logo - behind the monitor */}
-        {isOn && (
+        {/* Emirates Logo with fade transition - behind the monitor */}
+        {showLogo && (
           <div 
             style={{
               position: 'absolute',
@@ -145,7 +206,9 @@ export default function Home() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              zIndex: 1
+              zIndex: 1,
+              opacity: 1,
+              transition: 'opacity 1s ease-in-out'
             }}
           >
             <img 
@@ -160,6 +223,58 @@ export default function Home() {
                 objectFit: 'contain'
               }}
             />
+          </div>
+        )}
+
+        {/* Simple Video Player - behind the monitor */}
+        {showVideo && (
+          <div 
+            style={{
+              position: 'absolute',
+              left: `${screenDimensions.x}px`,
+              top: `${screenDimensions.y}px`,
+              width: `${screenDimensions.width}px`,
+              height: `${screenDimensions.height}px`,
+              zIndex: 1,
+              borderRadius: '8px',
+              overflow: 'hidden',
+              backgroundColor: 'white',
+              opacity: videoFadeIn ? 1 : 0,
+              transition: 'opacity 1.5s ease-in-out'
+            }}
+          >
+            <YouTube
+              videoId="qSqVVswa420" // Top Gun: Maverick Official Trailer
+              opts={youtubeOptions}
+              onReady={onYouTubePlayerReady}
+              onError={onYouTubePlayerError}
+              style={{
+                width: '100%',
+                height: '100%'
+              }}
+            />
+            
+            {/* Simple error message */}
+            {videoError && (
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  backgroundColor: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 3,
+                  color: '#333',
+                  fontSize: '16px'
+                }}
+              >
+                Video unavailable
+              </div>
+            )}
           </div>
         )}
         
