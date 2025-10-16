@@ -3,156 +3,179 @@
 import { useState, useEffect } from 'react'
 
 export default function Home() {
-  const [currentTime, setCurrentTime] = useState(new Date())
+  const [isOn, setIsOn] = useState(true)
+  const [screenDimensions, setScreenDimensions] = useState({ width: 0, height: 0, x: 0, y: 0 })
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date())
-    }, 1000)
-    return () => clearInterval(timer)
+    const calculateScreenDimensions = () => {
+      const container = document.querySelector('.monitor-container') as HTMLElement
+      if (!container) return
+      
+      const rect = container.getBoundingClientRect()
+      const containerAspectRatio = rect.width / rect.height
+      const monitorAspectRatio = 1.43
+      
+      let monitorWidth, monitorHeight, monitorX, monitorY
+      
+      if (containerAspectRatio > monitorAspectRatio) {
+        monitorHeight = rect.height
+        monitorWidth = monitorHeight * monitorAspectRatio
+        monitorX = (rect.width - monitorWidth) / 2
+        monitorY = 0
+      } else {
+        monitorWidth = rect.width
+        monitorHeight = monitorWidth / monitorAspectRatio
+        monitorX = 0
+        monitorY = (rect.height - monitorHeight) / 2
+      }
+      
+      // Calculate screen area within monitor (approximate based on monitor bezels)
+      const screenWidth = monitorWidth * 1.05 // 105% of monitor width for screen
+      const screenHeight = monitorHeight * 0.88 // 88% of monitor height for screen
+      const screenX = monitorX + (monitorWidth - screenWidth) / 2
+      const screenY = monitorY + (monitorHeight - screenHeight) / 2 - monitorHeight * 0.01 // Offset for bottom bezel
+      
+      setScreenDimensions({
+        width: screenWidth,
+        height: screenHeight,
+        x: screenX,
+        y: screenY
+      })
+    }
+    
+    calculateScreenDimensions()
+    window.addEventListener('resize', calculateScreenDimensions)
+    
+    return () => window.removeEventListener('resize', calculateScreenDimensions)
   }, [])
 
+  const handlePowerButtonClick = (e: React.MouseEvent) => {
+    const container = e.currentTarget as HTMLElement
+    const rect = container.getBoundingClientRect()
+    
+    // Calculate the actual monitor image dimensions and position
+    const containerAspectRatio = rect.width / rect.height
+    const monitorAspectRatio = 1.43 // Based on the actual monitor image (roughly 1000x700)
+    
+    let monitorWidth, monitorHeight, monitorX, monitorY
+    
+    if (containerAspectRatio > monitorAspectRatio) {
+      // Container is wider than monitor, monitor is height-constrained
+      monitorHeight = rect.height
+      monitorWidth = monitorHeight * monitorAspectRatio
+      monitorX = (rect.width - monitorWidth) / 2
+      monitorY = 0
+    } else {
+      // Container is taller than monitor, monitor is width-constrained
+      monitorWidth = rect.width
+      monitorHeight = monitorWidth / monitorAspectRatio
+      monitorX = 0
+      monitorY = (rect.height - monitorHeight) / 2
+    }
+    
+    // Calculate click position relative to the monitor image
+    const clickX = e.clientX - rect.left - monitorX
+    const clickY = e.clientY - rect.top - monitorY
+    
+    // Power button is positioned more accurately based on the actual button location
+    // The button is on the thick bottom bezel, positioned horizontally centered
+    const powerButtonArea = {
+      centerX: monitorWidth * 0.5, // Center horizontally within monitor
+      centerY: monitorHeight * 0.92, // Near the bottom of the monitor (in the thick bezel)
+      radius: monitorWidth * 0.04 // 4% of monitor width as click radius
+    }
+    
+    // Only check if click is within the monitor image bounds
+    if (clickX >= 0 && clickX <= monitorWidth && clickY >= 0 && clickY <= monitorHeight) {
+      const distance = Math.sqrt(
+        Math.pow(clickX - powerButtonArea.centerX, 2) + 
+        Math.pow(clickY - powerButtonArea.centerY, 2)
+      )
+      
+      if (distance <= powerButtonArea.radius) {
+        setIsOn(!isOn)
+      }
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-blue-900 text-white">
-      {/* Top Header Bar */}
-      <header className="bg-blue-900 px-4 py-2 flex items-center justify-between">
-        {/* Left: Empty space */}
-        <div className="flex items-center">
-          <div className="w-6 h-6 mr-2">✈️</div>
-        </div>
-
-        {/* Center: Flight Time */}
-        <div className="flex items-center">
-          <div className="w-4 h-4 mr-1">✈️</div>
-          <span className="text-sm font-medium">11h 23m left</span>
-          <span className="ml-1 text-blue-300">&gt;</span>
-        </div>
-
-        {/* Right: User Controls */}
-        <div className="flex items-center space-x-3">
-          <div className="w-4 h-4">🔔</div>
-          <div className="w-4 h-4">⚙️</div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <div className="flex h-[calc(100vh-60px)]">
-        {/* Left Column */}
-        <div className="w-1/3 p-4 space-y-4">
-          {/* Continue Watching */}
-          <div className="border border-white rounded p-3">
-            <div className="flex items-center mb-2">
-              <div className="flex flex-col space-y-1 mr-3">
-                <div className="w-3 h-3 bg-blue-400 rounded-sm"></div>
-                <div className="w-3 h-3 bg-yellow-400 rounded-sm"></div>
-                <div className="w-3 h-3 bg-red-400 rounded-sm"></div>
-                <div className="w-3 h-3 bg-green-400 rounded-sm"></div>
-                <div className="w-3 h-3 bg-purple-400 rounded-sm"></div>
-                <div className="w-3 h-3 bg-red-600 rounded-sm"></div>
-              </div>
-              <h3 className="text-sm font-medium">Continue Watching</h3>
-            </div>
-            <div className="border border-white rounded p-2">
-              <span className="text-sm">LIONESS</span>
-            </div>
+    <div 
+      className="w-full h-screen overflow-hidden flex items-center justify-center relative cursor-pointer"
+      style={{
+        backgroundColor: 'white'
+      }}
+      onClick={handlePowerButtonClick}
+    >
+      <div 
+        className="monitor-container"
+        style={{
+          width: '100%',
+          height: '100%',
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+        {/* Black screen background - behind the monitor */}
+        {!isOn && (
+          <div 
+            style={{
+              position: 'absolute',
+              left: `${screenDimensions.x}px`,
+              top: `${screenDimensions.y}px`,
+              width: `${screenDimensions.width}px`,
+              height: `${screenDimensions.height}px`,
+              backgroundColor: 'black',
+              borderRadius: '8px',
+              zIndex: 1
+            }}
+          />
+        )}
+        
+        {/* Logo - behind the monitor */}
+        {isOn && (
+          <div 
+            style={{
+              position: 'absolute',
+              left: `${screenDimensions.x}px`,
+              top: `${screenDimensions.y}px`,
+              width: `${screenDimensions.width}px`,
+              height: `${screenDimensions.height}px`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1
+            }}
+          >
+            <img 
+              src="/images/Emirates_Logo.png" 
+              alt="Emirates Logo"
+              className="object-contain"
+              style={{
+                width: 'auto',
+                height: 'auto',
+                maxWidth: '60%',
+                maxHeight: '60%',
+                objectFit: 'contain'
+              }}
+            />
           </div>
-
-          {/* Recommended For You */}
-          <div className="border border-white rounded p-3">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium">Recommended For You</h3>
-              <span className="text-blue-300">&gt;</span>
-            </div>
-            <div className="border border-white rounded p-2">
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-red-500 rounded-sm mr-2"></div>
-                <span className="text-sm">A Day in JapanPERFECT DAYSAMAZING RACE</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Flight Status */}
-          <div className="border border-white rounded p-3">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium">Flight Status</h3>
-              <span className="text-blue-300">&gt;</span>
-            </div>
-            <div className="border border-white rounded p-2 relative">
-              <div className="text-sm">
-                <div className="font-medium">LAX + HND</div>
-                <div className="text-xs opacity-80">Departure 10:19 am</div>
-                <div className="text-xs opacity-80">Arrival 3:05 pm</div>
-              </div>
-              <div className="absolute bottom-0 left-0 w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                <span className="text-black font-bold text-sm">N</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Center Column */}
-        <div className="w-1/3 p-4 space-y-4">
-          {/* Paramount+ YouTube Music */}
-          <div className="text-center">
-            <span className="text-sm">Paramount+YouTube Music</span>
-          </div>
-
-          {/* Plan Your Tokyo Adventure */}
-          <div className="border border-white rounded p-3">
-            <h3 className="text-sm font-medium mb-2">Plan Your Tokyo Adventure</h3>
-            <div className="border border-white rounded p-2">
-              <span className="text-sm">Mount Fuji</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column */}
-        <div className="w-1/3 p-4 space-y-4">
-          {/* Your Onboard Experience */}
-          <div className="border border-white rounded p-3">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium">Your Onboard Experience</h3>
-              <span className="text-blue-300">&gt;</span>
-            </div>
-            <div className="border border-white rounded p-2">
-              <div className="text-sm">
-                <div className="text-xs opacity-80">Confirm Your Menu Selection</div>
-                <div className="font-medium">Grilled Chicken with Garlic Miso</div>
-                <div className="text-xs opacity-80">Chicken Dish</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Weather/Cabin Info */}
-          <div className="text-sm">
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-4 h-4">🚽</div>
-              <div className="w-4 h-4">☂️</div>
-            </div>
-            <div className="flex justify-between">
-              <div>
-                <div>Beat</div>
-                <div>Nap</div>
-                <div className="text-xs opacity-60">01</div>
-              </div>
-              <div>
-                <div>Cabin</div>
-                <div className="text-xs opacity-60">7°</div>
-              </div>
-              <div>
-                <div>Current</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Million Miler Gift */}
-          <div className="border border-white rounded p-3">
-            <h3 className="text-sm font-medium mb-2">Your Million Miler Gift from Delta</h3>
-            <div className="border border-white rounded p-2">
-              <span className="text-sm font-bold">MISSONI</span>
-            </div>
-          </div>
-        </div>
+        )}
+        
+        {/* Monitor image - always in foreground */}
+        <div 
+          style={{
+            backgroundImage: 'url(/images/Emirates_Monitor_Transparent.png)',
+            backgroundSize: 'contain',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            width: '100%',
+            height: '100%',
+            position: 'relative',
+            zIndex: 2
+          }}
+        />
       </div>
     </div>
   )
